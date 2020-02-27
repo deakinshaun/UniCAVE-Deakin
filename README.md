@@ -1,4 +1,8 @@
 
+# UniCAVE Deakin
+
+A fork of the UniCAVE project for use in Green Wood laboratory at Deakin University. Derived from the original Wisconsin Institute for Discovery project as described below.
+
 # UniCAVE Plugin version 2.0
 Ross Tredinnick, Brady Boettcher, Sam Solovy, Simon Smith, Benny Wysong-Grass, Kevin Ponto
 2/4/2019
