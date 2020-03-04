@@ -5,7 +5,7 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/UniCAVE/Scenes/UWPowerwall Calibration.unity
     guid: dfee0748c449a684ba106e457a371071
   - enabled: 0
@@ -14,4 +14,10 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/UniCAVE/Scenes/C6DualPipe.unity
     guid: bbbba7c1fd6f8e745bbdb9a429393239
+  - enabled: 0
+    path: Assets/UniCAVE/Scenes/TestImageScene.unity
+    guid: e3e6e16bcc108954db6b43a5d1fbf137
+  - enabled: 1
+    path: Assets/Examples/Jungle/Scenes/JungleScene.unity
+    guid: d26a16b6b62d93844a514682d9e12e42
   m_configObjects: {}
