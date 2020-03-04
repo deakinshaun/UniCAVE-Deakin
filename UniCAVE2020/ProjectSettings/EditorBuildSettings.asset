@@ -17,7 +17,10 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/UniCAVE/Scenes/TestImageScene.unity
     guid: e3e6e16bcc108954db6b43a5d1fbf137
-  - enabled: 1
+  - enabled: 0
     path: Assets/Examples/Jungle/Scenes/JungleScene.unity
     guid: d26a16b6b62d93844a514682d9e12e42
+  - enabled: 1
+    path: Assets/Examples/OperatingRoom/Scenes/OperatingRoom.unity
+    guid: a95e5c3f0fa921b408336ae71543d47f
   m_configObjects: {}
