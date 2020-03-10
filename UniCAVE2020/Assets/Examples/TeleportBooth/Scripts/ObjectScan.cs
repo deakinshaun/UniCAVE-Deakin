@@ -2,6 +2,7 @@
 using System.Collections;
 using Windows.Kinect;
 using System.IO;
+using System.Collections.Generic;
 
 using Photon.Pun;
 using Photon.Realtime;
@@ -11,11 +12,17 @@ public class ObjectScan : MonoBehaviour
     private KinectSensor sensor;
     private CoordinateMapper mapper;
 
-    private Mesh mesh;
-    private Vector3[] vertices;
-    private Vector2[] uv;
-    private int[] triangles;
-    
+    public class MeshDetails
+    {
+        public Mesh mesh;
+        public Vector3[] vertices;
+        public Vector2[] uv;
+        public int[] triangles;
+        public GameObject shape;
+    };
+
+    private MeshDetails mastermesh;
+
     // Size of Unity mesh is limited, so down sample to fit this limit.
     private const int _DownsampleSize = 2;
     private const double _DepthScale = 0.03f;
@@ -25,16 +32,18 @@ public class ObjectScan : MonoBehaviour
 
     public GameObject geometryPrototypeTemplate;
 
-    private GameObject shape = null;
+    private Dictionary<Player, MeshDetails> remoteMesh;
 
     private float timeSinceSend;
-    private float sendInterval = 1.0f;
+    private float sendInterval = 0.1f;
 
     // number of rows per rpc call
     private int rowSend = 10;
+    private int currentrow = 0;
 
     void Start()
     {
+        remoteMesh = new Dictionary<Player, MeshDetails>();
         timeSinceSend = sendInterval;
         sensor = KinectSensor.GetDefault();
         if (sensor != null)
@@ -42,8 +51,9 @@ public class ObjectScan : MonoBehaviour
             mapper = sensor.CoordinateMapper;
             var frameDesc = sensor.DepthFrameSource.FrameDescription;
 
-            mesh = new Mesh();
-            CreateMesh(mesh, frameDesc.Width / _DownsampleSize, frameDesc.Height / _DownsampleSize, this.gameObject);
+            mastermesh = new MeshDetails();
+            mastermesh.mesh = new Mesh();
+            CreateMesh(mastermesh, frameDesc.Width / _DownsampleSize, frameDesc.Height / _DownsampleSize, this.gameObject);
 
             if (sensor.IsOpen)
             {
@@ -52,13 +62,13 @@ public class ObjectScan : MonoBehaviour
         }
     }
 
-    void CreateMesh(Mesh mesh, int width, int height, GameObject targetMesh)
+    void CreateMesh(MeshDetails mesh, int width, int height, GameObject targetMesh)
     {
-        targetMesh.GetComponent<MeshFilter>().mesh = mesh;
+        targetMesh.GetComponent<MeshFilter>().mesh = mesh.mesh;
 
-        vertices = new Vector3[width * height];
-        uv = new Vector2[width * height];
-        triangles = new int[6 * ((width - 1) * (height - 1))];
+        mesh.vertices = new Vector3[width * height];
+        mesh.uv = new Vector2[width * height];
+        mesh.triangles = new int[6 * ((width - 1) * (height - 1))];
 
         int triangleIndex = 0;
         for (int y = 0; y < height; y++)
@@ -67,8 +77,8 @@ public class ObjectScan : MonoBehaviour
             {
                 int index = (y * width) + x;
 
-                vertices[index] = new Vector3(x, -y, 0);
-                uv[index] = new Vector2(((float)x / (float)width), ((float)y / (float)height));
+                mesh.vertices[index] = new Vector3(x, -y, 0);
+                mesh.uv[index] = new Vector2(((float)x / (float)width), ((float)y / (float)height));
 
                 // Skip the last row/col
                 if (x != (width - 1) && y != (height - 1))
@@ -78,20 +88,20 @@ public class ObjectScan : MonoBehaviour
                     int bottomLeft = topLeft + width;
                     int bottomRight = bottomLeft + 1;
 
-                    triangles[triangleIndex++] = topLeft;
-                    triangles[triangleIndex++] = topRight;
-                    triangles[triangleIndex++] = bottomLeft;
-                    triangles[triangleIndex++] = bottomLeft;
-                    triangles[triangleIndex++] = topRight;
-                    triangles[triangleIndex++] = bottomRight;
+                    mesh.triangles[triangleIndex++] = topLeft;
+                    mesh.triangles[triangleIndex++] = topRight;
+                    mesh.triangles[triangleIndex++] = bottomLeft;
+                    mesh.triangles[triangleIndex++] = bottomLeft;
+                    mesh.triangles[triangleIndex++] = topRight;
+                    mesh.triangles[triangleIndex++] = bottomRight;
                 }
             }
         }
 
-        mesh.vertices = vertices;
-        mesh.uv = uv;
-        mesh.triangles = triangles;
-        mesh.RecalculateNormals();
+        mesh.mesh.vertices = mesh.vertices;
+        mesh.mesh.uv = mesh.uv;
+        mesh.mesh.triangles = mesh.triangles;
+        mesh.mesh.RecalculateNormals();
     }
 
     [PunRPC]
@@ -99,12 +109,16 @@ public class ObjectScan : MonoBehaviour
     {
         Debug.Log(string.Format("UpdateGeometry {0} {1}x{2} {3}", depths.Length, w, h, info.Sender));
 
-        if (shape == null)
+        if (!remoteMesh.ContainsKey (info.Sender))
         {
-            shape = Instantiate(geometryPrototypeTemplate);
-            CreateMesh(shape.GetComponent<MeshFilter>().mesh, w, h, shape);
+            GameObject shape = Instantiate(geometryPrototypeTemplate);
+            MeshDetails md = new MeshDetails();
+            md.mesh = shape.GetComponent<MeshFilter>().mesh;
+            md.shape = shape;
+            remoteMesh[info.Sender] = md;
+            CreateMesh(md, w / _DownsampleSize, h / _DownsampleSize, shape);
         }
-        RefreshData(shape.GetComponent<MeshFilter>().mesh, w, h, row, numrows, depths, 0, 0);
+        RefreshData(remoteMesh[info.Sender], w, h, row, numrows, depths, 0, 0);
     }
 
     void Update()
@@ -121,7 +135,7 @@ public class ObjectScan : MonoBehaviour
             data[i] = depthData[i];
         }
         var frameDesc = sensor.DepthFrameSource.FrameDescription;
-        RefreshData(mesh, frameDesc.Width, frameDesc.Height, 0, frameDesc.Height, data, colorManager.ColorWidth, colorManager.ColorHeight);
+        RefreshData(mastermesh, frameDesc.Width, frameDesc.Height, 0, frameDesc.Height, data, colorManager.ColorWidth, colorManager.ColorHeight);
 
         // Send to any receivers.
         timeSinceSend -= Time.deltaTime;
@@ -130,20 +144,22 @@ public class ObjectScan : MonoBehaviour
             timeSinceSend = sendInterval;
             PhotonView photonView = PhotonView.Get(this);
              
-            int w = frameDesc.Width / _DownsampleSize;
-            int h = frameDesc.Height / _DownsampleSize;
+            int w = frameDesc.Width;
+            int h = frameDesc.Height;
             int[] rowdata = new int[w * rowSend];
-            for (int r = 0; r < h; r += rowSend)
+            for (int j = 0; j < rowSend * w; j++)
             {
-                for (int j = 0; j < rowSend * w; j++)
+                int p = currentrow * w + j;
+                if (p < data.Length)
                 {
-                    int p = r * w + j;
-                    if (p < data.Length)
-                    {
-                        rowdata[j] = data[p];
-                    }
+                    rowdata[j] = data[p];
                 }
-                photonView.RPC("UpdateGeometry", RpcTarget.All, w, h, r, rowSend, rowdata);
+            }
+            photonView.RPC("UpdateGeometry", RpcTarget.All, w, h, currentrow, rowSend, rowdata);
+            currentrow += rowSend;
+            if (currentrow > h)
+            {
+                currentrow = 0;
             }
         }
 
@@ -153,7 +169,7 @@ public class ObjectScan : MonoBehaviour
         }
     }
     
-    private void RefreshData(Mesh mesh, int width, int height, int row, int numrows, int[] depthData, int colorWidth, int colorHeight)
+    private void RefreshData(MeshDetails mesh, int width, int height, int row, int numrows, int[] depthData, int colorWidth, int colorHeight)
     {
         ColorSpacePoint[] colorSpace = new ColorSpacePoint[depthData.Length];
         ushort [] shortData = new ushort[depthData.Length];
@@ -182,22 +198,22 @@ public class ObjectScan : MonoBehaviour
 
                     avg = avg * _DepthScale;
 
-                    vertices[smallIndex].z = (float)avg;
+                    mesh.vertices[smallIndex].z = (float)avg;
 
                     // Update UV mapping with CDRP
                     if (colorWidth > 0)
                     {
                         var colorSpacePoint = colorSpace[(y * width) + x];
-                        uv[smallIndex] = new Vector2(colorSpacePoint.X / colorWidth, colorSpacePoint.Y / colorHeight);
+                        mesh.uv[smallIndex] = new Vector2(colorSpacePoint.X / colorWidth, colorSpacePoint.Y / colorHeight);
                     }
                 }
             }
         }
-        
-        mesh.vertices = vertices;
-        mesh.uv = uv;
-        mesh.triangles = triangles;
-        mesh.RecalculateNormals();
+
+        mesh.mesh.vertices = mesh.vertices;
+        mesh.mesh.uv = mesh.uv;
+        mesh.mesh.triangles = mesh.triangles;
+        mesh.mesh.RecalculateNormals();
     }
     
     private double GetAvg(int[] depthData, int x, int y, int width, int height)
@@ -237,25 +253,25 @@ public class ObjectScan : MonoBehaviour
         {
             file.WriteLine("mtllib " + filenameBase + ".mtl");
             file.WriteLine("o mesh");
-            foreach (Vector3 v in vertices)
+            foreach (Vector3 v in mastermesh.vertices)
             {
                 file.WriteLine("v " + v.x + " " + v.y + " " + v.z);
             }
-            foreach (Vector2 v in uv)
+            foreach (Vector2 v in mastermesh.uv)
             {
                 file.WriteLine("vt " + v.x + " " + v.y);
             }
-            foreach (Vector3 v in mesh.normals)
+            foreach (Vector3 v in mastermesh.mesh.normals)
             {
                 file.WriteLine("vn " + v.x + " " + v.y + " " + v.z);
             }
             file.WriteLine("usemtl meshMaterial");
             file.WriteLine("s off");
-            for (int i = 0; i < triangles.Length; i += 3)
+            for (int i = 0; i < mastermesh.triangles.Length; i += 3)
             {
-                file.WriteLine("f " + (1 + triangles[i + 0]) + "/" + (1 + triangles[i + 0]) + "/" + (1 + triangles[i + 0]) + " " +
-                                      (1 + triangles[i + 1]) + "/" + (1 + triangles[i + 1]) + "/" + (1 + triangles[i + 1]) + " " +
-                                      (1 + triangles[i + 2]) + "/" + (1 + triangles[i + 2]) + "/" + (1 + triangles[i + 2]));
+                file.WriteLine("f " + (1 + mastermesh.triangles[i + 0]) + "/" + (1 + mastermesh.triangles[i + 0]) + "/" + (1 + mastermesh.triangles[i + 0]) + " " +
+                                      (1 + mastermesh.triangles[i + 1]) + "/" + (1 + mastermesh.triangles[i + 1]) + "/" + (1 + mastermesh.triangles[i + 1]) + " " +
+                                      (1 + mastermesh.triangles[i + 2]) + "/" + (1 + mastermesh.triangles[i + 2]) + "/" + (1 + mastermesh.triangles[i + 2]));
             }
         }
 
