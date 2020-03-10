@@ -3,6 +3,9 @@ using System.Collections;
 using Windows.Kinect;
 using System.IO;
 
+using Photon.Pun;
+using Photon.Realtime;
+
 public class ObjectScan : MonoBehaviour
 {
     private KinectSensor sensor;
@@ -20,6 +23,10 @@ public class ObjectScan : MonoBehaviour
     public ColorSourceManager colorManager;
     public DepthSourceManager depthManager;
 
+    public GameObject geometryPrototypeTemplate;
+
+    private GameObject shape = null;
+
     void Start()
     {
         sensor = KinectSensor.GetDefault();
@@ -28,7 +35,8 @@ public class ObjectScan : MonoBehaviour
             mapper = sensor.CoordinateMapper;
             var frameDesc = sensor.DepthFrameSource.FrameDescription;
 
-            CreateMesh(frameDesc.Width / _DownsampleSize, frameDesc.Height / _DownsampleSize);
+            mesh = new Mesh();
+            CreateMesh(mesh, frameDesc.Width / _DownsampleSize, frameDesc.Height / _DownsampleSize, this.gameObject);
 
             if (sensor.IsOpen)
             {
@@ -37,10 +45,9 @@ public class ObjectScan : MonoBehaviour
         }
     }
 
-    void CreateMesh(int width, int height)
+    void CreateMesh(Mesh mesh, int width, int height, GameObject targetMesh)
     {
-        mesh = new Mesh();
-        GetComponent<MeshFilter>().mesh = mesh;
+        targetMesh.GetComponent<MeshFilter>().mesh = mesh;
 
         vertices = new Vector3[width * height];
         uv = new Vector2[width * height];
@@ -80,6 +87,19 @@ public class ObjectScan : MonoBehaviour
         mesh.RecalculateNormals();
     }
 
+    [PunRPC]
+    void UpdateGeometry(int w, int h, ushort [] depths)
+    {
+        Debug.Log(string.Format("UpdateGeometry {0} {1}x{2}", depths.Length, w, h));
+
+        if (shape == null)
+        {
+            shape = Instantiate(geometryPrototypeTemplate);
+            CreateMesh (shape.GetComponent <MeshFilter> ().mesh, w, h, shape);
+        }
+        RefreshData(shape.GetComponent<MeshFilter>().mesh, depths, 0, 0);
+    }
+
     void Update()
     {
         if (sensor == null)
@@ -87,7 +107,13 @@ public class ObjectScan : MonoBehaviour
             return;
         }
         gameObject.GetComponent<MeshRenderer> ().material.mainTexture = colorManager.GetColorTexture();
-        RefreshData(depthManager.GetData(), colorManager.ColorWidth, colorManager.ColorHeight);
+        RefreshData (mesh, depthManager.GetData(), colorManager.ColorWidth, colorManager.ColorHeight);
+
+        // Send to any receivers.
+        PhotonView photonView = PhotonView.Get(this);
+        var frameDesc = sensor.DepthFrameSource.FrameDescription;
+        photonView.RPC("UpdateGeometry", RpcTarget.All, frameDesc.Width / _DownsampleSize, frameDesc.Height / _DownsampleSize, depthManager.GetData ());
+
 
         if (Input.GetAxis ("Fire1") > 0.0f)
         {
@@ -95,7 +121,7 @@ public class ObjectScan : MonoBehaviour
         }
     }
     
-    private void RefreshData(ushort[] depthData, int colorWidth, int colorHeight)
+    private void RefreshData(Mesh mesh, ushort[] depthData, int colorWidth, int colorHeight)
     {
         var frameDesc = sensor.DepthFrameSource.FrameDescription;
         
@@ -119,7 +145,10 @@ public class ObjectScan : MonoBehaviour
                 
                 // Update UV mapping with CDRP
                 var colorSpacePoint = colorSpace[(y * frameDesc.Width) + x];
-                uv[smallIndex] = new Vector2(colorSpacePoint.X / colorWidth, colorSpacePoint.Y / colorHeight);
+                if (colorWidth > 0)
+                {
+                    uv[smallIndex] = new Vector2(colorSpacePoint.X / colorWidth, colorSpacePoint.Y / colorHeight);
+                }
             }
         }
         

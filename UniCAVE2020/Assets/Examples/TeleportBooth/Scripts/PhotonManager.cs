@@ -1,0 +1,27 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+using Photon.Pun;
+using Photon.Realtime;
+
+public class PhotonManager : MonoBehaviourPunCallbacks
+{
+    void Start()
+    {
+        Debug.Log("Connected: " + PhotonNetwork.IsConnected);
+        PhotonNetwork.ConnectUsingSettings();
+    }
+
+    public override void OnConnectedToMaster()
+    {
+        Debug.Log("Connected to master.");
+        RoomOptions roomopt = new RoomOptions();
+        PhotonNetwork.JoinOrCreateRoom("ApplicationRoom", roomopt, new TypedLobby("ApplicationLobby", LobbyType.Default));
+    }
+
+    public override void OnJoinedRoom()
+    {
+        Debug.Log("Joined room with " + PhotonNetwork.CurrentRoom.PlayerCount + " participants.");
+    }
+}
