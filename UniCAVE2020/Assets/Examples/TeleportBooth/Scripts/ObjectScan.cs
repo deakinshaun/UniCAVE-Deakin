@@ -88,14 +88,14 @@ public class ObjectScan : MonoBehaviour
     }
 
     [PunRPC]
-    void UpdateGeometry(int w, int h, ushort [] depths)
+    void UpdateGeometry(int w, int h, int[] depths, PhotonMessageInfo info)
     {
-        Debug.Log(string.Format("UpdateGeometry {0} {1}x{2}", depths.Length, w, h));
+        Debug.Log(string.Format("UpdateGeometry {0} {1}x{2} {3}", depths.Length, w, h, info.Sender));
 
         if (shape == null)
         {
             shape = Instantiate(geometryPrototypeTemplate);
-            CreateMesh (shape.GetComponent <MeshFilter> ().mesh, w, h, shape);
+            CreateMesh(shape.GetComponent<MeshFilter>().mesh, w, h, shape);
         }
         RefreshData(shape.GetComponent<MeshFilter>().mesh, depths, 0, 0);
     }
@@ -107,12 +107,18 @@ public class ObjectScan : MonoBehaviour
             return;
         }
         gameObject.GetComponent<MeshRenderer> ().material.mainTexture = colorManager.GetColorTexture();
-        RefreshData (mesh, depthManager.GetData(), colorManager.ColorWidth, colorManager.ColorHeight);
+        ushort [] depthData = depthManager.GetData();
+        int[] data = new int[depthData.Length];
+        for (int i = 0; i < depthData.Length; i++)
+        {
+            data[i] = depthData[i];
+        }
+        RefreshData(mesh, data, colorManager.ColorWidth, colorManager.ColorHeight);
 
         // Send to any receivers.
         PhotonView photonView = PhotonView.Get(this);
         var frameDesc = sensor.DepthFrameSource.FrameDescription;
-        photonView.RPC("UpdateGeometry", RpcTarget.All, frameDesc.Width / _DownsampleSize, frameDesc.Height / _DownsampleSize, depthManager.GetData ());
+        photonView.RPC("UpdateGeometry", RpcTarget.All, frameDesc.Width / _DownsampleSize, frameDesc.Height / _DownsampleSize, data);
 
 
         if (Input.GetAxis ("Fire1") > 0.0f)
@@ -121,12 +127,17 @@ public class ObjectScan : MonoBehaviour
         }
     }
     
-    private void RefreshData(Mesh mesh, ushort[] depthData, int colorWidth, int colorHeight)
+    private void RefreshData(Mesh mesh, int[] depthData, int colorWidth, int colorHeight)
     {
         var frameDesc = sensor.DepthFrameSource.FrameDescription;
         
         ColorSpacePoint[] colorSpace = new ColorSpacePoint[depthData.Length];
-        mapper.MapDepthFrameToColorSpace(depthData, colorSpace);
+        ushort [] shortData = new ushort[depthData.Length];
+        for (int i = 0; i < depthData.Length; i++)
+        {
+            shortData[i] = (ushort)depthData[i];
+        }
+        mapper.MapDepthFrameToColorSpace(shortData, colorSpace);
         
         for (int y = 0; y < frameDesc.Height - (_DownsampleSize - 1); y += _DownsampleSize)
         {
@@ -158,7 +169,7 @@ public class ObjectScan : MonoBehaviour
         mesh.RecalculateNormals();
     }
     
-    private double GetAvg(ushort[] depthData, int x, int y, int width, int height)
+    private double GetAvg(int[] depthData, int x, int y, int width, int height)
     {
         double sum = 0.0;
         int count = 0;
