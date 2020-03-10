@@ -27,8 +27,15 @@ public class ObjectScan : MonoBehaviour
 
     private GameObject shape = null;
 
+    private float timeSinceSend;
+    private float sendInterval = 1.0f;
+
+    // number of rows per rpc call
+    private int rowSend = 10;
+
     void Start()
     {
+        timeSinceSend = sendInterval;
         sensor = KinectSensor.GetDefault();
         if (sensor != null)
         {
@@ -88,7 +95,7 @@ public class ObjectScan : MonoBehaviour
     }
 
     [PunRPC]
-    void UpdateGeometry(int w, int h, int[] depths, PhotonMessageInfo info)
+    void UpdateGeometry(int w, int h, int row, int numrows, int[] depths, PhotonMessageInfo info)
     {
         Debug.Log(string.Format("UpdateGeometry {0} {1}x{2} {3}", depths.Length, w, h, info.Sender));
 
@@ -97,7 +104,7 @@ public class ObjectScan : MonoBehaviour
             shape = Instantiate(geometryPrototypeTemplate);
             CreateMesh(shape.GetComponent<MeshFilter>().mesh, w, h, shape);
         }
-        RefreshData(shape.GetComponent<MeshFilter>().mesh, w, h, depths, 0, 0);
+        RefreshData(shape.GetComponent<MeshFilter>().mesh, w, h, row, numrows, depths, 0, 0);
     }
 
     void Update()
@@ -114,12 +121,31 @@ public class ObjectScan : MonoBehaviour
             data[i] = depthData[i];
         }
         var frameDesc = sensor.DepthFrameSource.FrameDescription;
-        RefreshData(mesh, frameDesc.Width, frameDesc.Height, data, colorManager.ColorWidth, colorManager.ColorHeight);
+        RefreshData(mesh, frameDesc.Width, frameDesc.Height, 0, frameDesc.Height, data, colorManager.ColorWidth, colorManager.ColorHeight);
 
         // Send to any receivers.
-        PhotonView photonView = PhotonView.Get(this);
-        photonView.RPC("UpdateGeometry", RpcTarget.All, frameDesc.Width / _DownsampleSize, frameDesc.Height / _DownsampleSize, data);
-
+        timeSinceSend -= Time.deltaTime;
+        if (timeSinceSend < 0.0f)
+        {
+            timeSinceSend = sendInterval;
+            PhotonView photonView = PhotonView.Get(this);
+             
+            int w = frameDesc.Width / _DownsampleSize;
+            int h = frameDesc.Height / _DownsampleSize;
+            int[] rowdata = new int[w * rowSend];
+            for (int r = 0; r < h; r += rowSend)
+            {
+                for (int j = 0; j < rowSend * w; j++)
+                {
+                    int p = r * w + j;
+                    if (p < data.Length)
+                    {
+                        rowdata[j] = data[p];
+                    }
+                }
+                photonView.RPC("UpdateGeometry", RpcTarget.All, w, h, r, rowSend, rowdata);
+            }
+        }
 
         if (Input.GetAxis ("Fire1") > 0.0f)
         {
@@ -127,7 +153,7 @@ public class ObjectScan : MonoBehaviour
         }
     }
     
-    private void RefreshData(Mesh mesh, int width, int height, int[] depthData, int colorWidth, int colorHeight)
+    private void RefreshData(Mesh mesh, int width, int height, int row, int numrows, int[] depthData, int colorWidth, int colorHeight)
     {
         ColorSpacePoint[] colorSpace = new ColorSpacePoint[depthData.Length];
         ushort [] shortData = new ushort[depthData.Length];
@@ -144,22 +170,26 @@ public class ObjectScan : MonoBehaviour
         {
             for (int x = 0; x < width - (_DownsampleSize - 1); x += _DownsampleSize)
             {
-                int indexX = x / _DownsampleSize;
-                int indexY = y / _DownsampleSize;
-                int swidth = width / _DownsampleSize;
-                int smallIndex = indexY * swidth + indexX;
-                
-                double avg = GetAvg(depthData, x, y, width, height);
-                
-                avg = avg * _DepthScale;
-                
-                vertices[smallIndex].z = (float)avg;
-                
-                // Update UV mapping with CDRP
-                if (colorWidth > 0)
+                if ((y >= row) && (y < row + numrows))
                 {
-                    var colorSpacePoint = colorSpace[(y * width) + x];
-                    uv[smallIndex] = new Vector2(colorSpacePoint.X / colorWidth, colorSpacePoint.Y / colorHeight);
+                    int rowy = y - row;
+                    int indexX = x / _DownsampleSize;
+                    int indexY = y / _DownsampleSize;
+                    int swidth = width / _DownsampleSize;
+                    int smallIndex = indexY * swidth + indexX;
+
+                    double avg = GetAvg(depthData, x, rowy, width, height);
+
+                    avg = avg * _DepthScale;
+
+                    vertices[smallIndex].z = (float)avg;
+
+                    // Update UV mapping with CDRP
+                    if (colorWidth > 0)
+                    {
+                        var colorSpacePoint = colorSpace[(y * width) + x];
+                        uv[smallIndex] = new Vector2(colorSpacePoint.X / colorWidth, colorSpacePoint.Y / colorHeight);
+                    }
                 }
             }
         }
