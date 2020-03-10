@@ -7,6 +7,8 @@ using Photon.Realtime;
 
 public class PhotonManager : MonoBehaviourPunCallbacks
 {
+    public GameObject avatarPrefab;
+
     void Start()
     {
         Debug.Log("Connected: " + PhotonNetwork.IsConnected);
@@ -23,5 +25,7 @@ public class PhotonManager : MonoBehaviourPunCallbacks
     public override void OnJoinedRoom()
     {
         Debug.Log("Joined room with " + PhotonNetwork.CurrentRoom.PlayerCount + " participants.");
+
+        PhotonNetwork.Instantiate(avatarPrefab.name, new Vector3(), Quaternion.identity, 0);
     }
 }
