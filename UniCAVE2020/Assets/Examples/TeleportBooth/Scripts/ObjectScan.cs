@@ -97,7 +97,7 @@ public class ObjectScan : MonoBehaviour
             shape = Instantiate(geometryPrototypeTemplate);
             CreateMesh(shape.GetComponent<MeshFilter>().mesh, w, h, shape);
         }
-        RefreshData(shape.GetComponent<MeshFilter>().mesh, depths, 0, 0);
+        RefreshData(shape.GetComponent<MeshFilter>().mesh, w, h, depths, 0, 0);
     }
 
     void Update()
@@ -113,11 +113,11 @@ public class ObjectScan : MonoBehaviour
         {
             data[i] = depthData[i];
         }
-        RefreshData(mesh, data, colorManager.ColorWidth, colorManager.ColorHeight);
+        var frameDesc = sensor.DepthFrameSource.FrameDescription;
+        RefreshData(mesh, frameDesc.Width, frameDesc.Height, data, colorManager.ColorWidth, colorManager.ColorHeight);
 
         // Send to any receivers.
         PhotonView photonView = PhotonView.Get(this);
-        var frameDesc = sensor.DepthFrameSource.FrameDescription;
         photonView.RPC("UpdateGeometry", RpcTarget.All, frameDesc.Width / _DownsampleSize, frameDesc.Height / _DownsampleSize, data);
 
 
@@ -127,37 +127,38 @@ public class ObjectScan : MonoBehaviour
         }
     }
     
-    private void RefreshData(Mesh mesh, int[] depthData, int colorWidth, int colorHeight)
+    private void RefreshData(Mesh mesh, int width, int height, int[] depthData, int colorWidth, int colorHeight)
     {
-        var frameDesc = sensor.DepthFrameSource.FrameDescription;
-        
         ColorSpacePoint[] colorSpace = new ColorSpacePoint[depthData.Length];
         ushort [] shortData = new ushort[depthData.Length];
         for (int i = 0; i < depthData.Length; i++)
         {
             shortData[i] = (ushort)depthData[i];
         }
-        mapper.MapDepthFrameToColorSpace(shortData, colorSpace);
-        
-        for (int y = 0; y < frameDesc.Height - (_DownsampleSize - 1); y += _DownsampleSize)
+        if (colorWidth > 0)
         {
-            for (int x = 0; x < frameDesc.Width - (_DownsampleSize - 1); x += _DownsampleSize)
+            mapper.MapDepthFrameToColorSpace(shortData, colorSpace);
+        }
+        
+        for (int y = 0; y < height - (_DownsampleSize - 1); y += _DownsampleSize)
+        {
+            for (int x = 0; x < width - (_DownsampleSize - 1); x += _DownsampleSize)
             {
                 int indexX = x / _DownsampleSize;
                 int indexY = y / _DownsampleSize;
-                int width = frameDesc.Width / _DownsampleSize;
-                int smallIndex = indexY * width + indexX;
+                int swidth = width / _DownsampleSize;
+                int smallIndex = indexY * swidth + indexX;
                 
-                double avg = GetAvg(depthData, x, y, frameDesc.Width, frameDesc.Height);
+                double avg = GetAvg(depthData, x, y, width, height);
                 
                 avg = avg * _DepthScale;
                 
                 vertices[smallIndex].z = (float)avg;
                 
                 // Update UV mapping with CDRP
-                var colorSpacePoint = colorSpace[(y * frameDesc.Width) + x];
                 if (colorWidth > 0)
                 {
+                    var colorSpacePoint = colorSpace[(y * width) + x];
                     uv[smallIndex] = new Vector2(colorSpacePoint.X / colorWidth, colorSpacePoint.Y / colorHeight);
                 }
             }
