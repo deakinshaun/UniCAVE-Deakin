@@ -16,7 +16,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &8912542958354082653
 Transform:
   m_ObjectHideFlags: 0
@@ -124,9 +124,9 @@ Camera:
   m_FocalLength: 50
   m_NormalizedViewPortRect:
     serializedVersion: 2
-    x: 0.33333
+    x: 0.25
     y: 0
-    width: 0.333333
+    width: 0.25
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
@@ -201,7 +201,7 @@ Camera:
     serializedVersion: 2
     x: 0
     y: 0
-    width: 0.33333
+    width: 0.25
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
@@ -354,9 +354,9 @@ Camera:
   m_FocalLength: 50
   m_NormalizedViewPortRect:
     serializedVersion: 2
-    x: 0.66666
+    x: 0.5
     y: 0
-    width: 0.33333
+    width: 0.25
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
