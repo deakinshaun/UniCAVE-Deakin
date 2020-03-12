@@ -23,10 +23,13 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Examples/OperatingRoom/Scenes/OperatingRoom.unity
     guid: a95e5c3f0fa921b408336ae71543d47f
-  - enabled: 1
+  - enabled: 0
     path: Assets/Examples/Tuscany/Scenes/Tuscany.unity
     guid: 43575e44532c08a418b0c9093b4c37e0
   - enabled: 0
     path: Assets/Examples/Mountain Terrain/Scenes/MountainTerrain.unity
     guid: 3a500c36c9c09294f880ade735d8adbf
+  - enabled: 1
+    path: Assets/Examples/TeleportBooth/Scenes/TeleportBooth.unity
+    guid: 13317fd61dca7cd4ab419a12c1ece392
   m_configObjects: {}

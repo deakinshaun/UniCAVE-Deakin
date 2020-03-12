@@ -46593,25 +46593,35 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 8912542958354082642, guid: 8afbaedf897ef004791a7cd6c9dbc958,
+    - target: {fileID: 8912542958354082655, guid: 8afbaedf897ef004791a7cd6c9dbc958,
         type: 3}
-      propertyPath: m_IsActive
+      propertyPath: m_FOVAxisMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8912542958354082655, guid: 8afbaedf897ef004791a7cd6c9dbc958,
+        type: 3}
+      propertyPath: field of view
+      value: 60.574043
+      objectReference: {fileID: 0}
+    - target: {fileID: 8912542958952942497, guid: 8afbaedf897ef004791a7cd6c9dbc958,
+        type: 3}
+      propertyPath: m_FOVAxisMode
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8912542958952942497, guid: 8afbaedf897ef004791a7cd6c9dbc958,
         type: 3}
-      propertyPath: m_NormalizedViewPortRect.x
-      value: 0.25
-      objectReference: {fileID: 0}
-    - target: {fileID: 8912542958952942497, guid: 8afbaedf897ef004791a7cd6c9dbc958,
-        type: 3}
-      propertyPath: m_NormalizedViewPortRect.width
-      value: 0.25
+      propertyPath: field of view
+      value: 60.574043
       objectReference: {fileID: 0}
     - target: {fileID: 8912542959535606535, guid: 8afbaedf897ef004791a7cd6c9dbc958,
         type: 3}
-      propertyPath: m_NormalizedViewPortRect.width
-      value: 0.25
+      propertyPath: m_FOVAxisMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8912542959535606535, guid: 8afbaedf897ef004791a7cd6c9dbc958,
+        type: 3}
+      propertyPath: field of view
+      value: 60.574043
       objectReference: {fileID: 0}
     - target: {fileID: 8912542959848400152, guid: 8afbaedf897ef004791a7cd6c9dbc958,
         type: 3}
@@ -46680,13 +46690,13 @@ PrefabInstance:
       objectReference: {fileID: 1452694597}
     - target: {fileID: 8912542959883499898, guid: 8afbaedf897ef004791a7cd6c9dbc958,
         type: 3}
-      propertyPath: m_NormalizedViewPortRect.x
-      value: 0.5
+      propertyPath: m_FOVAxisMode
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8912542959883499898, guid: 8afbaedf897ef004791a7cd6c9dbc958,
         type: 3}
-      propertyPath: m_NormalizedViewPortRect.width
-      value: 0.25
+      propertyPath: field of view
+      value: 60.574043
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8afbaedf897ef004791a7cd6c9dbc958, type: 3}
