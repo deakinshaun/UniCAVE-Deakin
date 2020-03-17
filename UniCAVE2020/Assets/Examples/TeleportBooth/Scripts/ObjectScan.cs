@@ -32,13 +32,15 @@ public class ObjectScan : MonoBehaviour
 
     public GameObject geometryPrototypeTemplate;
 
+    public Vector3 scanPosition = new Vector3 (-10, 10, 0);
+
     private Dictionary<Player, MeshDetails> remoteMesh;
 
     private float timeSinceSend;
-    private float sendInterval = 0.1f;
+    private float sendInterval = 0.01f;
 
     // number of rows per rpc call
-    private int rowSend = 10;
+    private int rowSend = 2;
     private int currentrow = 0;
 
     void Start()
@@ -105,7 +107,7 @@ public class ObjectScan : MonoBehaviour
     }
 
     [PunRPC]
-    void UpdateGeometry(int w, int h, int row, int numrows, int[] depths, PhotonMessageInfo info)
+    void UpdateGeometry(int w, int h, int row, int numrows, int[] depths, Vector3 position, PhotonMessageInfo info)
     {
         Debug.Log(string.Format("UpdateGeometry {0} {1}x{2} {3}", depths.Length, w, h, info.Sender));
 
@@ -117,6 +119,7 @@ public class ObjectScan : MonoBehaviour
             md.shape = shape;
             remoteMesh[info.Sender] = md;
             CreateMesh(md, w / _DownsampleSize, h / _DownsampleSize, shape);
+            shape.transform.position = position;
         }
         RefreshData(remoteMesh[info.Sender], w, h, row, numrows, depths, 0, 0);
     }
@@ -155,7 +158,7 @@ public class ObjectScan : MonoBehaviour
                     rowdata[j] = data[p];
                 }
             }
-            photonView.RPC("UpdateGeometry", RpcTarget.All, w, h, currentrow, rowSend, rowdata);
+            photonView.RPC("UpdateGeometry", RpcTarget.All, w, h, currentrow, rowSend, rowdata, scanPosition);
             currentrow += rowSend;
             if (currentrow > h)
             {
